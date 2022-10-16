@@ -24,8 +24,12 @@ class Wolfram(commands.Cog):
 
         self.config = Config.get_conf(self, 2788801004)
         self.config.register_guild(**default_global)
+        
+    @commands.command(name="define")
+    async def _define(self, ctx, *term: str):
+        await self._wolfram(ctx, "define " + term)
 
-    @commands.command(name="wolfram", aliases=["ask"])
+    @commands.command(name="ask", aliases=["quick"])
     async def _wolfram(self, ctx, *question: str):
         """Ask Wolfram Alpha any question."""
         api_key = await self.config.WOLFRAM_API_KEY()
@@ -59,7 +63,7 @@ class Wolfram(commands.Cog):
         else:
             await ctx.send(box(message))
 
-    @commands.command(name="wolframimage")
+    @commands.command(name="wolfram")
     async def _image(self, ctx, *arguments: str):
         """Ask Wolfram Alpha any question. Returns an image."""
         if not arguments:
@@ -90,7 +94,7 @@ class Wolfram(commands.Cog):
                 except Exception as e:
                     await ctx.send(f"Oops, there was a problem: {e}")
 
-    @commands.command(name="wolframsolve")
+    @commands.command(name="solve")
     async def _solve(self, ctx, *, query: str):
         """Ask Wolfram Alpha any math question. Returns step by step answers."""
         api_key = await self.config.WOLFRAM_API_KEY()
