@@ -27,7 +27,8 @@ class Wolfram(commands.Cog):
         
     @commands.command(name="define")
     async def _define(self, ctx, *term: str):
-        await self._wolfram(ctx, "define " + term)
+        """Define a term with Wolfram Alpha"""
+        await self._wolfram(ctx, "define " + " ".join(term))
 
     @commands.command(name="ask", aliases=["quick"])
     async def _wolfram(self, ctx, *question: str):
