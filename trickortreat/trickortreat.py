@@ -9,7 +9,7 @@ from redbot.core import commands, checks, Config, bank
 from redbot.core.utils.chat_formatting import box, pagify, humanize_number
 from redbot.core.utils.menus import menu, DEFAULT_CONTROLS
 
-__version__ = "0.1.7"
+__version__ = "0.2.7"
 
 
 class TrickOrTreat(commands.Cog):
@@ -28,10 +28,11 @@ class TrickOrTreat(commands.Cog):
         self.config = Config.get_conf(self, 2710311393, force_registration=True)
 
         default_guild = {"cooldown": 300, "channel": [], "pick": 50, "toggle": False}
+        default_global = {"schema": "v1"}
 
         default_user = {
             "candies": 0,
-            "chocolate": 0,
+            "chocolates": 0,
             "cookies": 0,
             "eaten": 0,
             "last_tot": "2018-01-01 00:00:00.000001",
@@ -42,6 +43,23 @@ class TrickOrTreat(commands.Cog):
 
         self.config.register_user(**default_user)
         self.config.register_guild(**default_guild)
+        self.config.register_global(**default_global)
+
+    async def cleanup(self):
+        # Schema didn't exist before, so it will be initialized at v1.
+        # This will also run once for new cog installs
+        schema = await self.config.schema()
+        if schema == "v2":
+            return
+        await self.bot.wait_until_red_ready()
+        users = await self.config.all_users()
+        for uid, data in users.items():
+            if "chocolate" not in data:
+                continue
+            async with self.config.user_from_id(uid).all() as user:
+                user["chocolates"] += user["chocolate"]
+                del user["chocolate"]
+        await self.config.schema.set("v2")
 
     @commands.guild_only()
     @commands.cooldown(1, 1, commands.BucketType.user)
@@ -74,9 +92,15 @@ class TrickOrTreat(commands.Cog):
         if not candy_type:
             candy_type = "candies"
         if number < 0:
-            return await ctx.reply("That doesn't sound fun.")
+            return await ctx.send(
+                "That doesn't sound fun.",
+                reference=ctx.message.to_reference(fail_if_not_exists=False),
+            )
         if number == 0:
-            return await ctx.reply("You pretend to eat a candy.")
+            return await ctx.send(
+                "You pretend to eat a candy.",
+                reference=ctx.message.to_reference(fail_if_not_exists=False),
+            )
         if candy_type in ["candies", "candy"]:
             candy_type = "candies"
         if candy_type in ["lollipops", "lollipop"]:
@@ -89,11 +113,20 @@ class TrickOrTreat(commands.Cog):
             candy_type = "cookies"
         candy_list = ["candies", "chocolate", "lollipops", "cookies", "stars"]
         if candy_type not in candy_list:
-            return await ctx.reply("That's not a candy type! Use the inventory command to see what you have.")
+            return await ctx.send(
+                "That's not a candy type! Use the inventory command to see what you have.",
+                reference=ctx.message.to_reference(fail_if_not_exists=False),
+            )
         if userdata[candy_type] < number:
-            return await ctx.reply(f"You don't have that many {candy_type}.")
+            return await ctx.send(
+                f"You don't have that many {candy_type}.",
+                reference=ctx.message.to_reference(fail_if_not_exists=False),
+            )
         if userdata[candy_type] == 0:
-            return await ctx.reply(f"You contemplate the idea of eating {candy_type}.")
+            return await ctx.send(
+                f"You contemplate the idea of eating {candy_type}.",
+                reference=ctx.message.to_reference(fail_if_not_exists=False),
+            )
 
         eat_phrase = [
             "You leisurely enjoy",
@@ -111,7 +144,10 @@ class TrickOrTreat(commands.Cog):
         ]
         if candy_type in ["candies", "candy"]:
             if (userdata["sickness"] + number * 2) in range(70, 95):
-                await ctx.reply("After all that candy, sugar doesn't sound so good.")
+                await ctx.send(
+                    "After all that candy, sugar doesn't sound so good.",
+                    reference=ctx.message.to_reference(fail_if_not_exists=False),
+                )
                 yuck = random.randint(1, 10)
                 if yuck == 10:
                     await self.config.user(ctx.author).sickness.set(userdata["sickness"] + 25)
@@ -133,8 +169,9 @@ class TrickOrTreat(commands.Cog):
 
                 await self.config.user(ctx.author).eaten.set(userdata["eaten"] + (userdata["candies"] - lost_candy))
 
-                return await ctx.reply(
-                    f"You begin to think you don't need all this candy, maybe...\n*{lost_candy} candies are left behind*"
+                return await ctx.send(
+                    f"You begin to think you don't need all this candy, maybe...\n*{lost_candy} candies are left behind*",
+                    reference=ctx.message.to_reference(fail_if_not_exists=False),
                 )
 
             if (userdata["sickness"] + number) > 96:
@@ -142,7 +179,10 @@ class TrickOrTreat(commands.Cog):
                 lost_candy = userdata["candies"] - random.randint(1, 5)
                 if lost_candy <= 0:
                     await self.config.user(ctx.author).candies.set(0)
-                    message = await ctx.reply("...")
+                    message = await ctx.send(
+                        "...",
+                        reference=ctx.message.to_reference(fail_if_not_exists=False),
+                    )
                     await asyncio.sleep(2)
                     await message.edit(content="..........")
                     await asyncio.sleep(2)
@@ -152,7 +192,7 @@ class TrickOrTreat(commands.Cog):
                 await self.config.guild(ctx.guild).pick.set(pick + lost_candy)
                 await self.config.user(ctx.author).candies.set(0)
                 await self.config.user(ctx.author).eaten.set(userdata["eaten"] + (userdata["candies"] - lost_candy))
-                message = await ctx.reply("...")
+                message = await ctx.send("...", reference=ctx.message.to_reference(fail_if_not_exists=False))
                 await asyncio.sleep(2)
                 await message.edit(content="..........")
                 await asyncio.sleep(2)
@@ -161,8 +201,9 @@ class TrickOrTreat(commands.Cog):
                 )
 
             pluralcandy = "candy" if number == 1 else "candies"
-            await ctx.reply(
-                f"{random.choice(eat_phrase)} {number} {pluralcandy}. (Total eaten: `{humanize_number(await self.config.user(ctx.author).eaten() + number)}` \N{CANDY})"
+            await ctx.send(
+                f"{random.choice(eat_phrase)} {number} {pluralcandy}. (Total eaten: `{humanize_number(await self.config.user(ctx.author).eaten() + number)}` \N{CANDY})",
+                reference=ctx.message.to_reference(fail_if_not_exists=False),
             )
             await self.config.user(ctx.author).sickness.set(userdata["sickness"] + (number * 2))
             await self.config.user(ctx.author).candies.set(userdata["candies"] - number)
@@ -170,20 +211,22 @@ class TrickOrTreat(commands.Cog):
 
         if candy_type in ["chocolates", "chocolate"]:
             pluralchoc = "chocolate" if number == 1 else "chocolates"
-            await ctx.reply(
-                f"{random.choice(eat_phrase)} {number} {pluralchoc}. You feel slightly better!\n*Sickness has gone down by {number * 10}*"
+            await ctx.send(
+                f"{random.choice(eat_phrase)} {number} {pluralchoc}. You feel slightly better!\n*Sickness has gone down by {number * 10}*",
+                reference=ctx.message.to_reference(fail_if_not_exists=False),
             )
             new_sickness = userdata["sickness"] - (number * 10)
             if new_sickness < 0:
                 new_sickness = 0
             await self.config.user(ctx.author).sickness.set(new_sickness)
-            await self.config.user(ctx.author).chocolate.set(userdata["chocolate"] - number)
+            await self.config.user(ctx.author).chocolates.set(userdata["chocolates"] - number)
             await self.config.user(ctx.author).eaten.set(userdata["eaten"] + number)
 
         if candy_type in ["lollipops", "lollipop"]:
             pluralpop = "lollipop" if number == 1 else "lollipops"
-            await ctx.reply(
-                f"{random.choice(eat_phrase)} {number} {pluralpop}. You feel slightly better!\n*Sickness has gone down by {number * 20}*"
+            await ctx.send(
+                f"{random.choice(eat_phrase)} {number} {pluralpop}. You feel slightly better!\n*Sickness has gone down by {number * 20}*",
+                reference=ctx.message.to_reference(fail_if_not_exists=False),
             )
             new_sickness = userdata["sickness"] - (number * 20)
             if new_sickness < 0:
@@ -209,8 +252,9 @@ class TrickOrTreat(commands.Cog):
 
         if candy_type in ["stars", "star"]:
             pluralstar = "star" if number == 1 else "stars"
-            await ctx.reply(
-                f"{random.choice(eat_phrase)} {number} {pluralstar}. You feel great!\n*Sickness has been reset*"
+            await ctx.send(
+                f"{random.choice(eat_phrase)} {number} {pluralstar}. You feel great!\n*Sickness has been reset*",
+                reference=ctx.message.to_reference(fail_if_not_exists=False),
             )
             await self.config.user(ctx.author).sickness.set(0)
             await self.config.user(ctx.author).stars.set(userdata["stars"] - number)
@@ -231,16 +275,25 @@ class TrickOrTreat(commands.Cog):
         candy_now = await self.config.user(ctx.author).candies()
         credits_name = await bank.get_currency_name(ctx.guild)
         if pieces <= 0:
-            return await ctx.reply("Not in this reality.")
+            return await ctx.send(
+                "Not in this reality.",
+                reference=ctx.message.to_reference(fail_if_not_exists=False),
+            )
         candy_price = int(round(await bank.get_balance(ctx.author)) * 0.04) * pieces
         if candy_price in range(0, 10):
             candy_price = pieces * 10
         try:
             await bank.withdraw_credits(ctx.author, candy_price)
         except ValueError:
-            return await ctx.reply(f"Not enough {credits_name} ({candy_price} required).")
+            return await ctx.send(
+                f"Not enough {credits_name} ({candy_price} required).",
+                reference=ctx.message.to_reference(fail_if_not_exists=False),
+            )
         await self.config.user(ctx.author).candies.set(candy_now + pieces)
-        await ctx.reply(f"Bought {pieces} candies with {candy_price} {credits_name}.")
+        await ctx.send(
+            f"Bought {pieces} candies with {candy_price} {credits_name}.",
+            reference=ctx.message.to_reference(fail_if_not_exists=False),
+        )
 
     @commands.guild_only()
     @commands.command()
@@ -249,7 +302,10 @@ class TrickOrTreat(commands.Cog):
         """Show the candy eating leaderboard."""
         userinfo = await self.config._all_from_scope(scope="USER")
         if not userinfo:
-            return await ctx.reply("No one has any candy.")
+            return await ctx.send(
+                "No one has any candy.",
+                reference=ctx.message.to_reference(fail_if_not_exists=False),
+            )
         async with ctx.typing():
             sorted_acc = sorted(userinfo.items(), key=lambda x: x[1]["eaten"], reverse=True)
         # Leaderboard logic from https://github.com/Cog-Creators/Red-DiscordBot/blob/V3/develop/redbot/cogs/economy/economy.py#L445
@@ -314,8 +370,8 @@ class TrickOrTreat(commands.Cog):
         msg = f"{ctx.author.mention}'s Candy Bag:"
         em = discord.Embed(color=await ctx.embed_color())
         em.description = f"{userdata['candies']} \N{CANDY}"
-        if userdata["chocolate"]:
-            em.description += f"\n{userdata['chocolate']} \N{CHOCOLATE BAR}"
+        if userdata["chocolates"]:
+            em.description += f"\n{userdata['chocolates']} \N{CHOCOLATE BAR}"
         if userdata["lollipops"]:
             em.description += f"\n{userdata['lollipops']} \N{LOLLIPOP}"
         if userdata["cookies"]:
@@ -374,7 +430,10 @@ class TrickOrTreat(commands.Cog):
         found = round((chance / 100) * to_pick)
         await self.config.user(ctx.author).candies.set(candies + found)
         await self.config.guild(ctx.guild).pick.set(to_pick - found)
-        message = await ctx.reply("You start searching the area for candy...")
+        message = await ctx.send(
+            "You start searching the area for candy...",
+            reference=ctx.message.to_reference(fail_if_not_exists=False),
+        )
         await asyncio.sleep(3)
         await message.edit(content=f"You found {found} \N{CANDY}!")
 
@@ -387,7 +446,10 @@ class TrickOrTreat(commands.Cog):
         candy_users = await self.config._all_from_scope(scope="USER")
         valid_user = list(set(guild_users) & set(candy_users))
         if not valid_user:
-            return await ctx.reply("No one has any candy yet!")
+            return await ctx.send(
+                "No one has any candy yet!",
+                reference=ctx.message.to_reference(fail_if_not_exists=False),
+            )
         if not user:
             picked_user = self.bot.get_user(random.choice(valid_user))
         elif user == ctx.author or user == user.bot:
@@ -404,25 +466,37 @@ class TrickOrTreat(commands.Cog):
                 new_picked_candy_now = await self.config.user(new_picked_user).candies()
                 if chance in range(24, 25):
                     if new_picked_candy_now == 0:
-                        message = await ctx.reply("You see an unsuspecting guildmate...")
+                        message = await ctx.send(
+                            "You see an unsuspecting guildmate...",
+                            reference=ctx.message.to_reference(fail_if_not_exists=False),
+                        )
                         await asyncio.sleep(random.randint(3, 6))
                         return await message.edit(
                             content=f"There was nothing in {picked_user.name}#{picked_user.discriminator}'s pockets, so you picked {new_picked_user.name}#{new_picked_user.discriminator}'s pockets but they had no candy either!"
                         )
                 else:
-                    message = await ctx.reply("You see an unsuspecting guildmate...")
+                    message = await ctx.send(
+                        "You see an unsuspecting guildmate...",
+                        reference=ctx.message.to_reference(fail_if_not_exists=False),
+                    )
                     await asyncio.sleep(random.randint(3, 6))
                     return await message.edit(
                         content=f"There was nothing in {picked_user.name}#{picked_user.discriminator}'s pockets, so you looked around again... you saw {new_picked_user.name}#{new_picked_user.discriminator} in the distance, but you didn't think you could catch up..."
                     )
             if chance in range(10, 20):
-                message = await ctx.reply("You start sneaking around in the shadows...")
+                message = await ctx.send(
+                    "You start sneaking around in the shadows...",
+                    reference=ctx.message.to_reference(fail_if_not_exists=False),
+                )
                 await asyncio.sleep(random.randint(3, 6))
                 return await message.edit(
                     content=f"You snuck up on {picked_user.name}#{picked_user.discriminator} and tried picking their pockets but there was nothing there!"
                 )
             else:
-                message = await ctx.reply("You start looking around for a target...")
+                message = await ctx.send(
+                    "You start looking around for a target...",
+                    reference=ctx.message.to_reference(fail_if_not_exists=False),
+                )
                 await asyncio.sleep(random.randint(3, 6))
                 return await message.edit(content="You snuck around for a while but didn't find anything.")
         user_candy_now = await self.config.user(ctx.author).candies()
@@ -431,7 +505,10 @@ class TrickOrTreat(commands.Cog):
             multip = 0.7
         pieces = round(picked_candy_now * multip)
         if pieces <= 0:
-            message = await ctx.reply("You stealthily move over to an unsuspecting person...")
+            message = await ctx.send(
+                "You stealthily move over to an unsuspecting person...",
+                reference=ctx.message.to_reference(fail_if_not_exists=False),
+            )
             await asyncio.sleep(4)
             return await message.edit(content="You found someone to pickpocket, but they had nothing but pocket lint.")
         chance = random.randint(1, 25)
@@ -441,13 +518,19 @@ class TrickOrTreat(commands.Cog):
             "You see someone with a full candy bag...",
         ]
         if chance <= 10:
-            message = await ctx.reply("You creep closer to the target...")
+            message = await ctx.send(
+                "You creep closer to the target...",
+                reference=ctx.message.to_reference(fail_if_not_exists=False),
+            )
             await asyncio.sleep(random.randint(3, 5))
             return await message.edit(content="You snuck around for a while but didn't find anything.")
         if chance > 18:
             await self.config.user(picked_user).candies.set(picked_candy_now - pieces)
             await self.config.user(ctx.author).candies.set(user_candy_now + pieces)
-            message = await ctx.reply(random.choice(sneak_phrases))
+            message = await ctx.send(
+                random.choice(sneak_phrases),
+                reference=ctx.message.to_reference(fail_if_not_exists=False),
+            )
             await asyncio.sleep(4)
             await message.edit(content="There seems to be an unsuspecting victim in the corner...")
             await asyncio.sleep(4)
@@ -457,7 +540,10 @@ class TrickOrTreat(commands.Cog):
         if chance in range(11, 17):
             await self.config.user(picked_user).candies.set(picked_candy_now - round(pieces / 2))
             await self.config.user(ctx.author).candies.set(user_candy_now + round(pieces / 2))
-            message = await ctx.reply(random.choice(sneak_phrases))
+            message = await ctx.send(
+                random.choice(sneak_phrases),
+                reference=ctx.message.to_reference(fail_if_not_exists=False),
+            )
             await asyncio.sleep(4)
             await message.edit(content="There seems to be an unsuspecting victim in the corner...")
             await asyncio.sleep(4)
@@ -465,7 +551,10 @@ class TrickOrTreat(commands.Cog):
                 content=f"You stole {round(pieces/2)} \N{CANDY} from {picked_user.name}#{picked_user.discriminator}!"
             )
         else:
-            message = await ctx.reply(random.choice(sneak_phrases))
+            message = await ctx.send(
+                random.choice(sneak_phrases),
+                reference=ctx.message.to_reference(fail_if_not_exists=False),
+            )
             await asyncio.sleep(4)
             noise_msg = [
                 "You hear a sound behind you! When you turn back, your target is gone.",
@@ -587,33 +676,35 @@ class TrickOrTreat(commands.Cog):
                 "The house you were approaching just turned the light off.",
                 "The wind starts to pick up as you look for the next house...",
             ]
-            return await message.reply(random.choice(messages))
+            return await message.channel.send(
+                random.choice(messages), reference=message.to_reference(fail_if_not_exists=False)
+            )
         await self.config.user(message.author).last_tot.set(str(now))
         candy = random.randint(1, 25)
         lollipop = random.randint(0, 100)
         star = random.randint(0, 100)
-        chocolate = random.randint(0, 100)
+        chocolates = random.randint(0, 100)
         cookie = random.randint(0, 100)
         win_message = f"{message.author.mention}\nYou received:\n{candy}\N{CANDY}"
         await self.config.user(message.author).candies.set(userdata["candies"] + candy)
 
-        if chocolate == 100:
-            await self.config.user(message.author).chocolate.set(userdata["chocolate"] + 6)
+        if chocolates == 100:
+            await self.config.user(message.author).chocolates.set(userdata["chocolates"] + 6)
             win_message += "\n**BONUS**: 6 \N{CHOCOLATE BAR}"
-        elif 99 >= chocolate >= 95:
-            await self.config.user(message.author).chocolate.set(userdata["chocolate"] + 5)
+        elif 99 >= chocolates >= 95:
+            await self.config.user(message.author).chocolates.set(userdata["chocolates"] + 5)
             win_message += "\n**BONUS**: 5 \N{CHOCOLATE BAR}"
-        elif 94 >= chocolate >= 90:
-            await self.config.user(message.author).chocolate.set(userdata["chocolate"] + 4)
+        elif 94 >= chocolates >= 90:
+            await self.config.user(message.author).chocolates.set(userdata["chocolates"] + 4)
             win_message += "\n**BONUS**: 4 \N{CHOCOLATE BAR}"
-        elif 89 >= chocolate >= 80:
-            await self.config.user(message.author).chocolate.set(userdata["chocolate"] + 3)
+        elif 89 >= chocolates >= 80:
+            await self.config.user(message.author).chocolates.set(userdata["chocolates"] + 3)
             win_message += "\n**BONUS**: 3 \N{CHOCOLATE BAR}"
-        elif 79 >= chocolate >= 75:
-            await self.config.user(message.author).chocolate.set(userdata["chocolate"] + 2)
+        elif 79 >= chocolates >= 75:
+            await self.config.user(message.author).chocolates.set(userdata["chocolates"] + 2)
             win_message += "\n**BONUS**: 2 \N{CHOCOLATE BAR}"
-        elif 74 >= chocolate >= 70:
-            await self.config.user(message.author).chocolate.set(userdata["chocolate"] + 1)
+        elif 74 >= chocolates >= 70:
+            await self.config.user(message.author).chocolates.set(userdata["chocolates"] + 1)
             win_message += "\n**BONUS**: 1 \N{CHOCOLATE BAR}"
 
         if lollipop == 100:
@@ -665,7 +756,9 @@ class TrickOrTreat(commands.Cog):
             "*You knock on the door...*",
             "*There's a movement in the shadows by the side of the house...*",
         ]
-        bot_talking = await message.reply(random.choice(walking_messages))
+        bot_talking = await message.channel.send(
+            random.choice(walking_messages), reference=message.to_reference(fail_if_not_exists=False)
+        )
         await asyncio.sleep(random.randint(5, 8))
         door_messages = [
             "*The door slowly opens...*",
