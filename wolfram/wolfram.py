@@ -25,14 +25,14 @@ class Wolfram(commands.Cog):
         self.config = Config.get_conf(self, 2788801004)
         self.config.register_guild(**default_global)
         
-    @commands.command(name="define")
-    async def _define(self, ctx, *term: str):
-        """Define a term with Wolfram Alpha"""
-        await self._wolfram(ctx, "define " + " ".join(term))
+    @commands.hybrid_command(name="define")
+    async def _define(self, ctx, *, term: str):
+        """Define a word or phrase with Wolfram Alpha."""
+        await self._wolfram(ctx, f"define {term}")
 
-    @commands.command(name="ask", aliases=["quick"])
+    @commands.hybrid_command(name="ask")
     async def _wolfram(self, ctx, *question: str):
-        """Ask Wolfram Alpha any question."""
+        """Ask Wolfram Alpha a math or informational questions."""
         api_key = await self.config.WOLFRAM_API_KEY()
         if not api_key:
             return await ctx.send("No API key set for Wolfram Alpha. Get one at http://products.wolframalpha.com/api/")
@@ -64,9 +64,9 @@ class Wolfram(commands.Cog):
         else:
             await ctx.send(box(message))
 
-    @commands.command(name="wolfram")
+    @commands.hybrid_command(name="wolfram")
     async def _image(self, ctx, *arguments: str):
-        """Ask Wolfram Alpha any question. Returns an image."""
+        """Ask Wolfram Alpha a math or informational question. Returns an image."""
         if not arguments:
             return await ctx.send_help()
         api_key = await self.config.WOLFRAM_API_KEY()
@@ -95,7 +95,7 @@ class Wolfram(commands.Cog):
                 except Exception as e:
                     await ctx.send(f"Oops, there was a problem: {e}")
 
-    @commands.command(name="solve")
+    @commands.hybrid_command(name="solve")
     async def _solve(self, ctx, *, query: str):
         """Ask Wolfram Alpha any math question. Returns step by step answers."""
         api_key = await self.config.WOLFRAM_API_KEY()
