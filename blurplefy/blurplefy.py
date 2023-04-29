@@ -90,14 +90,14 @@ class Blurplefy(commands.Cog):
         picture = None
         link = ctx.message.attachments
         if user is None and not link:
-            picture = ctx.author.avatar_url
+            picture = ctx.author.avatar.url
         else:
             if not user:
                 if len(link) != 0:
                     for image in link:
                         picture = image.url
             else:
-                picture = user.avatar_url
+                picture = user.avatar.url
         try:
             async with self.session.get(str(picture)) as r:
                 response = await r.read()
@@ -114,7 +114,7 @@ class Blurplefy(commands.Cog):
         picture = None
         link = ctx.message.attachments
         if user is None and not link:
-            picture = ctx.author.avatar_url
+            picture = ctx.author.avatar.url
             role_check = True
         elif not user:
             if len(link) != 0:
@@ -122,7 +122,7 @@ class Blurplefy(commands.Cog):
                     picture = image.url
                     role_check = False
         else:
-            picture = user.avatar_url
+            picture = user.avatar.url
             role_check = False
 
         try:
@@ -192,8 +192,8 @@ class Blurplefy(commands.Cog):
                 msg = "I need the Manage Roles permission here to be able to add the set blurple role to users that have a qualifying profile picture set."
                 return await ctx.send(msg)
             if (
-                blurpleness_percentage > 75
-                and picture == ctx.author.avatar_url
+                blurplenesspercentage > 75
+                and picture == ctx.author.avatar.url
                 and blurple_role_obj not in ctx.author.roles
                 and percent_blurple > 5
             ):
@@ -201,7 +201,7 @@ class Blurplefy(commands.Cog):
                 msg += f"you have recieved the role **{blurple_role_obj.name}**!"
                 await ctx.send(msg)
                 await ctx.author.add_roles(blurple_role_obj)
-            elif picture == ctx.author.avatar_url and blurple_role_obj not in ctx.author.roles:
+            elif picture == ctx.author.avatar.url and blurple_role_obj not in ctx.author.roles:
                 msg = f"{ctx.author.display_name}, your profile pic does not have enough blurple (over 75% in total and over 5% blurple), "
                 msg += f"therefore you are not eligible for the role {blurple_role_obj.name}."
                 await ctx.send(msg)
@@ -215,14 +215,14 @@ class Blurplefy(commands.Cog):
         picture = None
         link = ctx.message.attachments
         if user is None and not link:
-            picture = ctx.author.avatar_url
+            picture = ctx.author.avatar.url
         else:
             if not user:
                 if len(link) != 0:
                     for image in link:
                         picture = image.url
             else:
-                picture = user.avatar_url
+                picture = user.avatar.url
         try:
             async with self.session.get(str(picture)) as r:
                 response = await r.read()

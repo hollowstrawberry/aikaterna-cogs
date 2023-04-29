@@ -30,7 +30,7 @@ IPV4_RE = re.compile("\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}")
 IPV6_RE = re.compile("([a-f0-9:]+:+)+[a-f0-9]+")
 
 
-__version__ = "1.8.3"
+__version__ = "1.8.4"
 
 warnings.filterwarnings(
     "ignore",
@@ -1479,7 +1479,7 @@ class RSS(commands.Cog):
                 return
 
             embed_toggle = rss_feed["embed"]
-            red_embed_settings = await self.bot.embed_requested(channel, None)
+            red_embed_settings = await self.bot.embed_requested(channel)
             embed_permissions = channel.permissions_for(channel.guild.me).embed_links
 
             rss_limit = rss_feed.get("limit", 0)
