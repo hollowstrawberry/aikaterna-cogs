@@ -31,15 +31,14 @@ class Wolfram(commands.Cog):
         await self._wolfram(ctx, f"define {term}")
 
     @commands.hybrid_command(name="ask")
-    async def _wolfram(self, ctx, *question: str):
+    async def _wolfram(self, ctx, *, question: str):
         """Ask Wolfram Alpha a math or informational questions."""
         api_key = await self.config.WOLFRAM_API_KEY()
         if not api_key:
             return await ctx.send("No API key set for Wolfram Alpha. Get one at http://products.wolframalpha.com/api/")
 
         url = "http://api.wolframalpha.com/v2/query?"
-        query = " ".join(question)
-        payload = {"input": query, "appid": api_key}
+        payload = {"input": question, "appid": api_key}
         headers = {"user-agent": "Red-cog/2.0.0"}
         async with ctx.typing():
             async with self.session.get(url, params=payload, headers=headers) as r:
@@ -65,9 +64,9 @@ class Wolfram(commands.Cog):
             await ctx.send(box(message))
 
     @commands.hybrid_command(name="wolfram")
-    async def _image(self, ctx, *arguments: str):
+    async def _image(self, ctx, *, question: str):
         """Ask Wolfram Alpha a math or informational question. Returns an image."""
-        if not arguments:
+        if not question:
             return await ctx.send_help()
         api_key = await self.config.WOLFRAM_API_KEY()
         if not api_key:
@@ -79,8 +78,7 @@ class Wolfram(commands.Cog):
         background = "193555"
         foreground = "white"
         units = "metric"
-        query = " ".join(arguments)
-        query = urllib.parse.quote(query)
+        query = urllib.parse.quote(question)
         url = f"http://api.wolframalpha.com/v1/simple?appid={api_key}&i={query}%3F&width={width}&fontsize={font_size}&layout={layout}&background={background}&foreground={foreground}&units={units}&ip=127.0.0.1"
 
         async with ctx.typing():
@@ -96,7 +94,7 @@ class Wolfram(commands.Cog):
                     await ctx.send(f"Oops, there was a problem: {e}")
 
     @commands.hybrid_command(name="solve")
-    async def _solve(self, ctx, *, query: str):
+    async def _solve(self, ctx, *, question: str):
         """Ask Wolfram Alpha any math question. Returns step by step answers."""
         api_key = await self.config.WOLFRAM_API_KEY()
         if not api_key:
@@ -105,7 +103,7 @@ class Wolfram(commands.Cog):
         url = f"http://api.wolframalpha.com/v2/query"
         params = {
             "appid": api_key,
-            "input": query,
+            "input": question,
             "podstate": "Step-by-step solution",
             "format": "plaintext",
         }
