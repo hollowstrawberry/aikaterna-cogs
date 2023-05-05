@@ -28,7 +28,7 @@ class Wolfram(commands.Cog):
     @commands.hybrid_command(name="define")
     async def _define(self, ctx, *, term: str):
         """Define a word or phrase with Wolfram Alpha."""
-        await self._wolfram(ctx, f"define {term}")
+        await self._wolfram(ctx, question=f"define {term}")
 
     @commands.hybrid_command(name="ask")
     async def _wolfram(self, ctx, *, question: str):
