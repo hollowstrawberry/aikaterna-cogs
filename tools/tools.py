@@ -150,7 +150,7 @@ class Tools(commands.Cog):
     async def banlist(self, ctx):
         """Displays the server's banlist."""
         try:
-            banlist = await ctx.guild.bans()
+            banlist = [bans async for bans in ctx.guild.bans()]
         except discord.errors.Forbidden:
             await ctx.send("I do not have the `Ban Members` permission.")
             return
@@ -269,11 +269,11 @@ class Tools(commands.Cog):
     async def inrole(self, ctx, *, rolename: str):
         """Check members in the role specified."""
         guild = ctx.guild
-        await ctx.trigger_typing()
+        await ctx.typing()
         if rolename.startswith("<@&"):
-            role_id = int(re.search(r"<@&(.{18})>$", rolename)[1])
+            role_id = int(re.search(r"<@&(.{17,19})>$", rolename)[1])
             role = discord.utils.get(ctx.guild.roles, id=role_id)
-        elif len(rolename) in [17, 18] and rolename.isdigit():
+        elif len(rolename) in [17, 18, 19] and rolename.isdigit():
             role = discord.utils.get(ctx.guild.roles, id=int(rolename))
         else:
             role = discord.utils.find(lambda r: r.name.lower() == rolename.lower(), guild.roles)
@@ -502,7 +502,7 @@ class Tools(commands.Cog):
     @commands.command()
     async def rid(self, ctx, *, rolename):
         """Shows the id of a role."""
-        await ctx.trigger_typing()
+        await ctx.typing()
         if rolename is discord.Role:
             role = rolename
         else:
@@ -516,7 +516,7 @@ class Tools(commands.Cog):
     @commands.command()
     async def rinfo(self, ctx, *, rolename: discord.Role):
         """Shows role info."""
-        await ctx.trigger_typing()
+        await ctx.typing()
 
         try:
             caller = inspect.currentframe().f_back.f_code.co_name
@@ -802,7 +802,7 @@ class Tools(commands.Cog):
 
     @commands.guild_only()
     @commands.command()
-    async def whatis(self, ctx, id: int):
+    async def whatis(self, ctx, what_is_this_id: int):
         """What is it?"""
         it_is = False
         msg = False
@@ -811,30 +811,43 @@ class Tools(commands.Cog):
         for rl in rls:
             roles.extend(rl)
 
+        guild_list = [g for g in self.bot.guilds]
+        emoji_list = [e for e in self.bot.emojis]
+
         look_at = (
-            self.bot.guilds
-            + self.bot.emojis
+            guild_list
+            + emoji_list
             + roles
             + [m for m in self.bot.get_all_members()]
             + [c for c in self.bot.get_all_channels()]
         )
 
-        if ctx.guild.id == id:
+        if ctx.guild.id == what_is_this_id:
             it_is = ctx.guild
-        elif ctx.channel.id == id:
+        elif ctx.channel.id == what_is_this_id:
             it_is = ctx.channel
-        elif ctx.author.id == id:
+        elif ctx.author.id == what_is_this_id:
             it_is = ctx.author
 
         if not it_is:
-            it_is = discord.utils.get(look_at, id=id)
+            it_is = discord.utils.get(look_at, id=what_is_this_id)
+
+        if not it_is:
+            for g in guild_list:
+                thread_or_sticker = g.get_thread(what_is_this_id)
+                if thread_or_sticker:
+                    return await ctx.invoke(self.chinfo, what_is_this_id)
+
+                for sticker in g.stickers:
+                    if sticker.id == what_is_this_id:
+                        return await ctx.invoke(self.stinfo, sticker)
 
         if isinstance(it_is, discord.Guild):
-            await ctx.invoke(self.sinfo, id)
+            await ctx.invoke(self.sinfo, what_is_this_id)
         elif isinstance(it_is, discord.abc.GuildChannel):
-            await ctx.invoke(self.chinfo, id)
+            await ctx.invoke(self.chinfo, what_is_this_id)
         elif isinstance(it_is, discord.Thread):
-            await ctx.invoke(self.chinfo, id)
+            await ctx.invoke(self.chinfo, what_is_this_id)
         elif isinstance(it_is, (discord.User, discord.Member)):
             await ctx.invoke(self.uinfo, it_is)
         elif isinstance(it_is, discord.Role):
@@ -966,11 +979,15 @@ class Tools(commands.Cog):
     def role_from_string(guild, rolename, roles=None):
         if roles is None:
             roles = guild.roles
-        role = discord.utils.find(lambda r: r.name.lower() == str(rolename).lower(), roles)
+        if rolename.startswith("<@&"):
+            role_id = int(re.search(r"<@&(.{17,19})>$", rolename)[1])
+            role = guild.get_role(role_id)
+        else:
+            role = discord.utils.find(lambda r: r.name.lower() == str(rolename).lower(), roles)
         return role
 
     def sort_channels(self, channels):
-        temp = dict()
+        temp = {}
 
         channels = sorted(channels, key=lambda c: c.position)
 

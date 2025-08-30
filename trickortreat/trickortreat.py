@@ -9,7 +9,7 @@ from redbot.core import commands, checks, Config, bank
 from redbot.core.utils.chat_formatting import box, pagify, humanize_number
 from redbot.core.utils.menus import menu, DEFAULT_CONTROLS
 
-__version__ = "0.2.7"
+__version__ = "0.2.12"
 
 
 class TrickOrTreat(commands.Cog):
@@ -101,17 +101,17 @@ class TrickOrTreat(commands.Cog):
                 "You pretend to eat a candy.",
                 reference=ctx.message.to_reference(fail_if_not_exists=False),
             )
-        if candy_type in ["candies", "candy"]:
+        if candy_type in ["candies", "candy", "\U0001f36c"]:
             candy_type = "candies"
-        if candy_type in ["lollipops", "lollipop"]:
+        if candy_type in ["lollipops", "lollipop", "\U0001f36d"]:
             candy_type = "lollipops"
-        if candy_type in ["stars", "star"]:
+        if candy_type in ["stars", "star", "\U00002b50"]:
             candy_type = "stars"
-        if candy_type in ["chocolate", "chocolates"]:
-            candy_type = "chocolate"
-        if candy_type in ["cookie", "cookies"]:
+        if candy_type in ["chocolate", "chocolates", "\U0001f36b"]:
+            candy_type = "chocolates"
+        if candy_type in ["cookie", "cookies", "\U0001f960"]:
             candy_type = "cookies"
-        candy_list = ["candies", "chocolate", "lollipops", "cookies", "stars"]
+        candy_list = ["candies", "chocolates", "lollipops", "cookies", "stars"]
         if candy_type not in candy_list:
             return await ctx.send(
                 "That's not a candy type! Use the inventory command to see what you have.",
@@ -243,9 +243,7 @@ class TrickOrTreat(commands.Cog):
                 phrase = f"You feel worse!\n*Sickness has gone up by {new_sickness - old_sickness}*"
             else:
                 phrase = f"You feel better!\n*Sickness has gone down by {old_sickness - new_sickness}*"
-            await ctx.reply(
-                f"{random.choice(eat_phrase)} {number} {pluralcookie}. {phrase}"
-            )
+            await ctx.reply(f"{random.choice(eat_phrase)} {number} {pluralcookie}. {phrase}")
             await self.config.user(ctx.author).sickness.set(new_sickness)
             await self.config.user(ctx.author).cookies.set(userdata["cookies"] - number)
             await self.config.user(ctx.author).eaten.set(userdata["eaten"] + number)
@@ -300,6 +298,7 @@ class TrickOrTreat(commands.Cog):
     @commands.bot_has_permissions(embed_links=True, add_reactions=True)
     async def cboard(self, ctx):
         """Show the candy eating leaderboard."""
+        space = "\N{SPACE}"
         userinfo = await self.config._all_from_scope(scope="USER")
         if not userinfo:
             return await ctx.send(
@@ -316,11 +315,9 @@ class TrickOrTreat(commands.Cog):
             pound_len=pound_len + 3,
             score="Candies Eaten",
             score_len=score_len + 6,
-            name="\N{THIN SPACE}" + "Name"
-            if not str(ctx.author.mobile_status) in ["online", "idle", "dnd"]
-            else "Name",
+            name="Name",
         )
-        temp_msg = header
+        scoreboard_msg = self._red(header)
         for pos, account in enumerate(sorted_acc):
             if account[1]["eaten"] == 0:
                 continue
@@ -331,31 +328,41 @@ class TrickOrTreat(commands.Cog):
                     user_obj = await self.bot.fetch_user(account[0])
             except AttributeError:
                 user_obj = await self.bot.fetch_user(account[0])
-            
-            _user_name = discord.utils.escape_markdown(user_obj.name)
-            user_name = f"{_user_name}#{user_obj.discriminator}"
-            if len(user_name) > 28:
-                user_name = f"{_user_name[:19]}...#{user_obj.discriminator}"
+
+            if user_obj.discriminator != "0":
+                if len(user_obj.name) > 28:
+                    user_name = f"{user_obj.name[:19]}...#{user_obj.discriminator}"
+                else:
+                    user_name = f"{user_obj.name}#{user_obj.discriminator}"
+            else:
+                if len(user_obj.name) > 28:
+                    user_name = f"{user_obj.name[:25]}..."
+                else:
+                    user_name = user_obj.name
+
             user_idx = pos + 1
             if user_obj == ctx.author:
-                temp_msg += (
-                    f"{f'{user_idx}.': <{pound_len + 2}} "
-                    f"{humanize_number(account[1]['eaten']) + ' 🍬': <{score_len + 4}} <<{user_name}>>\n"
+                user_highlight = self._yellow(f"<<{user_name}>>")
+                scoreboard_msg += (
+                    f"{self._yellow(user_idx)}. {space*pound_len}"
+                    f"{humanize_number(account[1]['eaten']) + ' 🍬': <{score_len + 4}} {user_highlight}\n"
                 )
             else:
-                temp_msg += (
-                    f"{f'{user_idx}.': <{pound_len + 2}} "
+                scoreboard_msg += (
+                    f"{self._yellow(user_idx)}. {space*pound_len}"
                     f"{humanize_number(account[1]['eaten']) + ' 🍬': <{score_len + 4}} {user_name}\n"
                 )
 
         page_list = []
         pages = 1
-        for page in pagify(temp_msg, delims=["\n"], page_length=1000):
+        for page in pagify(scoreboard_msg, delims=["\n"], page_length=1000):
             embed = discord.Embed(
                 colour=0xF4731C,
-                description=box(f"\N{CANDY} Global Leaderboard \N{CANDY}", lang="prolog") + (box(page, lang="md")),
+                description=box(f"\N{CANDY} Global Leaderboard \N{CANDY}", lang="prolog") + (box(page, lang="ansi")),
             )
-            embed.set_footer(text=f"Page {humanize_number(pages)}/{humanize_number(math.ceil(len(temp_msg) / 1500))}")
+            embed.set_footer(
+                text=f"Page {humanize_number(pages)}/{humanize_number(math.ceil(len(scoreboard_msg) / 1000))}"
+            )
             pages += 1
             page_list.append(embed)
         return await menu(ctx, page_list, DEFAULT_CONTROLS)
@@ -458,11 +465,23 @@ class TrickOrTreat(commands.Cog):
             picked_user = user
         else:
             picked_user = self.bot.get_user(random.choice(valid_user))
+
+        if picked_user.discriminator != "0":
+            picked_user_name = f"{picked_user.name}#{picked_user.discriminator}"
+        else:
+            picked_user_name = picked_user.name
+
         picked_candy_now = await self.config.user(picked_user).candies()
         if picked_candy_now == 0:
             chance = random.randint(1, 25)
             if chance in range(21, 25):
                 new_picked_user = self.bot.get_user(random.choice(valid_user))
+
+                if new_picked_user.discriminator != "0":
+                    new_picked_user_name = f"{new_picked_user.name}#{new_picked_user.discriminator}"
+                else:
+                    new_picked_user_name = new_picked_user.name
+
                 new_picked_candy_now = await self.config.user(new_picked_user).candies()
                 if chance in range(24, 25):
                     if new_picked_candy_now == 0:
@@ -472,7 +491,7 @@ class TrickOrTreat(commands.Cog):
                         )
                         await asyncio.sleep(random.randint(3, 6))
                         return await message.edit(
-                            content=f"There was nothing in {picked_user.name}#{picked_user.discriminator}'s pockets, so you picked {new_picked_user.name}#{new_picked_user.discriminator}'s pockets but they had no candy either!"
+                            content=f"There was nothing in {picked_user}'s pockets, so you picked {new_picked_user_name}'s pockets but they had no candy either!"
                         )
                 else:
                     message = await ctx.send(
@@ -481,7 +500,7 @@ class TrickOrTreat(commands.Cog):
                     )
                     await asyncio.sleep(random.randint(3, 6))
                     return await message.edit(
-                        content=f"There was nothing in {picked_user.name}#{picked_user.discriminator}'s pockets, so you looked around again... you saw {new_picked_user.name}#{new_picked_user.discriminator} in the distance, but you didn't think you could catch up..."
+                        content=f"There was nothing in {picked_user}'s pockets, so you looked around again... you saw {new_picked_user_name} in the distance, but you didn't think you could catch up..."
                     )
             if chance in range(10, 20):
                 message = await ctx.send(
@@ -490,7 +509,7 @@ class TrickOrTreat(commands.Cog):
                 )
                 await asyncio.sleep(random.randint(3, 6))
                 return await message.edit(
-                    content=f"You snuck up on {picked_user.name}#{picked_user.discriminator} and tried picking their pockets but there was nothing there!"
+                    content=f"You snuck up on {picked_user} and tried picking their pockets but there was nothing there!"
                 )
             else:
                 message = await ctx.send(
@@ -534,9 +553,7 @@ class TrickOrTreat(commands.Cog):
             await asyncio.sleep(4)
             await message.edit(content="There seems to be an unsuspecting victim in the corner...")
             await asyncio.sleep(4)
-            return await message.edit(
-                content=f"You stole {pieces} \N{CANDY} from {picked_user.name}#{picked_user.discriminator}!"
-            )
+            return await message.edit(content=f"You stole {pieces} \N{CANDY} from {picked_user}!")
         if chance in range(11, 17):
             await self.config.user(picked_user).candies.set(picked_candy_now - round(pieces / 2))
             await self.config.user(ctx.author).candies.set(user_candy_now + round(pieces / 2))
@@ -547,9 +564,7 @@ class TrickOrTreat(commands.Cog):
             await asyncio.sleep(4)
             await message.edit(content="There seems to be an unsuspecting victim in the corner...")
             await asyncio.sleep(4)
-            return await message.edit(
-                content=f"You stole {round(pieces/2)} \N{CANDY} from {picked_user.name}#{picked_user.discriminator}!"
-            )
+            return await message.edit(content=f"You stole {round(pieces/2)} \N{CANDY} from {picked_user}!")
         else:
             message = await ctx.send(
                 random.choice(sneak_phrases),
@@ -583,12 +598,19 @@ class TrickOrTreat(commands.Cog):
     async def add(self, ctx, channel: discord.TextChannel):
         """Add a text channel for Trick or Treating."""
         channel_list = await self.config.guild(ctx.guild).channel()
+        tottoggle = await self.config.guild(ctx.guild).toggle()
+        if not tottoggle:
+            toggle_info = (
+                f"\nThe game toggle for this server is **Off**. Turn it on with the `{ctx.prefix}tottoggle` command."
+            )
+        else:
+            toggle_info = ""
         if channel.id not in channel_list:
             channel_list.append(channel.id)
             await self.config.guild(ctx.guild).channel.set(channel_list)
-            await ctx.send(f"{channel.mention} added to the valid Trick or Treat channels.")
+            await ctx.send(f"{channel.mention} added to the valid Trick or Treat channels.{toggle_info}")
         else:
-            await ctx.send(f"{channel.mention} is already in the list of Trick or Treat channels.")
+            await ctx.send(f"{channel.mention} is already in the list of Trick or Treat channels.{toggle_info}")
 
     @commands.guild_only()
     @totchannel.command()
@@ -789,3 +811,17 @@ class TrickOrTreat(commands.Cog):
         await bot_talking.edit(content=random.choice(greet_messages))
         await asyncio.sleep(2)
         await message.channel.send(win_message)
+
+    @staticmethod
+    def _red(to_transform: str):
+        red_ansi_prefix = "\u001b[0;31m"
+        reset_ansi_prefix = "\u001b[0;0m"
+        new_string = f"{red_ansi_prefix}{to_transform}{reset_ansi_prefix}"
+        return new_string
+
+    @staticmethod
+    def _yellow(to_transform: str):
+        yellow_ansi_prefix = "\u001b[0;33m"
+        reset_ansi_prefix = "\u001b[0;0m"
+        new_string = f"{yellow_ansi_prefix}{to_transform}{reset_ansi_prefix}"
+        return new_string

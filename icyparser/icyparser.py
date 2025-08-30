@@ -1,3 +1,4 @@
+import asyncio
 import aiohttp
 from aiohttp.client_proto import ResponseHandler
 from aiohttp.http_parser import HttpResponseParserPy
@@ -45,6 +46,8 @@ class ICYResponseHandler(ResponseHandler):
         read_timeout=None,
         read_bufsize=2 ** 16,
         timeout_ceil_threshold=5,
+        max_line_size=8190,
+        max_field_size=8190,
     ) -> None:
         # this is a copy of the implementation from here:
         # https://github.com/aio-libs/aiohttp/blob/v3.8.1/aiohttp/client_proto.py#L137-L165
@@ -287,7 +290,7 @@ class IcyParser(commands.Cog):
 
         except Exception:
             log.error(
-                f"Icyparser's _metadata_read encountered an error while trying to read a stream at {url}", exc_info=True
+                f"Icyparser's _metadata_read encountered an error while trying to read a stream at {resp.url}", exc_info=True
             )
         return None
 
